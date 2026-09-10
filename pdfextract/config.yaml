@@ -1,0 +1,119 @@
+# ==============================================================================
+# Configuración: Motor Comparativo de Extracción Documental de Pólizas
+# ==============================================================================
+
+processing:
+  # Ejecución en paralelo de ambos motores (true) o secuencial para protección de VRAM/RAM (false)
+  parallel: false
+  # Número máximo de hilos/procesos para paralelismo
+  max_workers: 2
+  # Tiempo límite por documento en segundos (0 = sin límite)
+  timeout_seconds: 600
+
+engines:
+  # ----------------------------------------------------------------------------
+  # Motor 1: Docling (IBM Granite / Docling Core)
+  # ----------------------------------------------------------------------------
+  docling:
+    enabled: true
+    # Habilita OCR cuando la página sea escaneada o carezca de texto nativo
+    ocr_enabled: true
+    # Motor de OCR para Docling: 'auto', 'easyocr', 'tesseract_cli', 'rapidocr'
+    ocr_engine: "auto"
+    # Activar detección y reconstrucción profunda de estructura de tablas
+    do_table_structure: true
+    # Modo de análisis de tablas: 'accurate' (recomendado para pólizas) o 'fast'
+    table_mode: "accurate"
+    # Forzar OCR incluso en páginas nativas (generalmente false)
+    force_ocr: false
+
+  # ----------------------------------------------------------------------------
+  # Motor 2: PaddleOCR-VL 1.6 (PaddleOCR / Vision-Language Model)
+  # ----------------------------------------------------------------------------
+  paddleocr:
+    enabled: true
+    # Dispositivo de ejecución: 'auto', 'cpu', 'cuda'
+    device: "auto"
+    # Identificador o ruta del modelo PaddleOCR-VL
+    model_name: "PaddlePaddle/PaddleOCR-VL-1.6"
+    # Backend de inferencia: 'paddleocr' o 'transformers'
+    backend: "transformers"
+    # Habilitar análisis de layout estructural
+    use_layout: true
+    # Habilitar reconocimiento estructurado de tablas
+    use_table: true
+    # Precisión de punto flotante: 'fp32', 'fp16', 'bf16'
+    precision: "fp32"
+    # Idioma principal para OCR
+    lang: "es"
+
+output:
+  # Directorio raíz para resultados
+  output_dir: "./output"
+  # Guardar copia íntegra del PDF original en la subcarpeta original/
+  save_original: true
+  # Generar archivo de texto plano con orden de lectura
+  save_txt: true
+  # Generar archivo Markdown estructurado con tablas
+  save_markdown: true
+  # Generar archivo JSON estructurado canónico con coordenadas espaciales
+  save_json: true
+  # Incluir datos crudos del motor dentro del JSON
+  include_raw_engine_data: true
+  # Generar bloques RAG-ready (chunking semántico trazable con bbox)
+  generate_rag_chunks: true
+
+document_analysis:
+  # Umbral de caracteres por página para considerar que contiene texto nativo real
+  min_chars_native_page: 50
+  # Inspección página por página para tratamiento híbrido
+  page_by_page_inspection: true
+  # Intentar unificar tablas multipágina con encabezados idénticos consecutivos
+  merge_consecutive_multipage_tables: true
+
+# ------------------------------------------------------------------------------
+# Postprocesamiento Inteligente y Corrección de Tablas
+# ------------------------------------------------------------------------------
+table_postprocessing:
+  enabled: true
+  validator:
+    high_threshold: 0.80
+    low_threshold: 0.50
+    max_empty_cell_ratio: 0.60
+    max_overlap_iou: 0.20
+  consensus:
+    enabled: true
+    min_table_overlap_iou: 0.40
+    min_agreement_score: 0.70
+    weight_columns: 0.35
+    weight_rows: 0.25
+    weight_geometry: 0.25
+    weight_content: 0.15
+  table_transformer:
+    enabled: true
+    model_name: "microsoft/table-transformer-structure-recognition"
+    device: "auto"
+    threshold: 0.60
+  save_audit_log: true
+
+# ------------------------------------------------------------------------------
+# Reglas de Postprocesamiento de Texto (Docling, PaddleOCR y Generales)
+# ------------------------------------------------------------------------------
+text_rules:
+  enabled: true
+  general_enabled: true
+  docling_enabled: true
+  paddleocr_enabled: true
+
+# ------------------------------------------------------------------------------
+# Sistema de Evaluación y Métricas (GriTS, TEDS, CER, WER)
+# ------------------------------------------------------------------------------
+evaluation:
+  enabled: true
+  ground_truth_dir: "./ground_truth"
+
+logging:
+  # Nivel de log: 'DEBUG', 'INFO', 'WARNING', 'ERROR'
+  level: "INFO"
+  # Guardar archivo de log de procesamiento en la carpeta de salida
+  save_log_file: true

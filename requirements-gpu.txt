@@ -1,0 +1,14 @@
+# ==============================================================================
+# Motor Comparativo de Extracción Documental (Docling vs PaddleOCR-VL 1.6)
+# Dependencias para Entorno con Aceleración GPU / CUDA
+# ==============================================================================
+
+-r requirements.txt
+
+# Reemplazo de PaddlePaddle para GPU con CUDA
+--find-links https://www.paddlepaddle.org.cn/whl/windows/mkl/avx/stable.html
+paddlepaddle-gpu>=3.0.0b1
+
+# PyTorch con aceleración CUDA
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch>=2.2.0+cu121
