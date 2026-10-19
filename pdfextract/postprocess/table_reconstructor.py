@@ -1,10 +1,11 @@
-﻿"""
+"""
 Reconstructor inteligente de tablas.
 Combina la estructura predicha por Table Transformer con los fragmentos de texto
 y coordenadas reconocidos previamente por Docling / PaddleOCR-VL.
 Preserva el 100% del texto reconocido mediante asignación geométrica sin re-ejecutar OCR.
 """
 
+import re
 from typing import List, Optional, Tuple
 from pdfextract.core.logger import get_logger
 from pdfextract.core.models import BoundingBox, Cell, Table
@@ -216,3 +217,118 @@ class TableReconstructor:
             f"Tabla '{original_table_id}' reconstruida con éxito: {num_rows} filas × {num_cols} columnas"
         )
         return reconstructed_table
+
+    def unpack_collapsed_key_value_table(self, table: Table) -> Optional[Table]:
+        """
+        Detecta y desempaca filas colapsadas en tablas de formulario de 2 columnas (Clave-Valor).
+        
+        Ejemplo:
+            Celda Col 0: "Tipo de Póliza: Frecuencia de Pago:"
+            Celda Col 1: "Individual Póliza: 10229219 Anual"
+            
+            Se desempaca limpiamente en 3 filas canónicas:
+            - "Tipo de Póliza:" -> "Individual"
+            - "Póliza:" -> "10229219"
+            - "Frecuencia de Pago:" -> "Anual"
+        """
+        if table.num_cols != 2 or not table.rows:
+            return None
+
+        key_pattern = re.compile(r"([A-Za-zÁ-ú]{2,}(?:\s+[A-Za-zÁ-ú]{2,}){0,4}:)")
+        embedded_kv_pattern = re.compile(r"([A-Za-zÁ-ú]{2,}(?:\s+[A-Za-zÁ-ú]{2,}){0,4}:)\s*([^\n:]+)")
+
+        expanded_rows: List[List[Cell]] = []
+        any_unpacked = False
+
+        for r_idx, row in enumerate(table.rows):
+            if len(row) < 2:
+                expanded_rows.append(row)
+                continue
+
+            c0_text = row[0].text.strip() if row[0].text else ""
+            c1_text = row[1].text.strip() if row[1].text else ""
+
+            keys_in_c0 = [k.strip() for k in key_pattern.findall(c0_text)]
+            m_emb = re.search(r"\b([A-Za-zÁ-ú]{3,20}:)\s*([A-Za-z0-9\-_\./]+)", c1_text)
+
+            # Si no hay múltiples claves en col 0 y no hay claves embebidas en col 1
+            if len(keys_in_c0) <= 1 and not m_emb:
+                expanded_rows.append(row)
+                continue
+
+            # Fila colapsada detectada
+            any_unpacked = True
+            row_pairs: List[Tuple[str, str]] = []
+
+            if len(keys_in_c0) == 2 and m_emb:
+                # Caso común: 2 claves en col 0, par embebido en medio de col 1
+                # Ej: c0 = "Tipo de Póliza: Frecuencia de Pago:", c1 = "Individual Póliza: 10229219 Anual"
+                emb_k, emb_v = m_emb.group(1).strip(), m_emb.group(2).strip()
+                val_before = c1_text[:m_emb.start()].strip()
+                val_after = c1_text[m_emb.end():].strip()
+                row_pairs.append((keys_in_c0[0], val_before))
+                row_pairs.append((emb_k, emb_v))
+                row_pairs.append((keys_in_c0[1], val_after))
+            elif len(keys_in_c0) >= 2:
+                # Múltiples claves en col 0
+                val_parts = c1_text.split()
+                if len(val_parts) == len(keys_in_c0):
+                    for k, v in zip(keys_in_c0, val_parts):
+                        row_pairs.append((k, v))
+                else:
+                    for k_idx, k in enumerate(keys_in_c0):
+                        v = val_parts[k_idx] if k_idx < len(val_parts) else ""
+                        row_pairs.append((k, v))
+            elif m_emb:
+                # 1 clave en col 0, par embebido en col 1
+                emb_k, emb_v = m_emb.group(1).strip(), m_emb.group(2).strip()
+                val_clean = (c1_text[:m_emb.start()] + " " + c1_text[m_emb.end():]).strip()
+                k0 = c0_text if c0_text else (keys_in_c0[0] if keys_in_c0 else "Campo:")
+                row_pairs.append((k0, val_clean))
+                row_pairs.append((emb_k, emb_v))
+
+            for pair_k, pair_v in row_pairs:
+                c_key = Cell(
+                    text=pair_k.strip(),
+                    row_index=len(expanded_rows),
+                    col_index=0,
+                    is_header=False,
+                    bbox=row[0].bbox,
+                )
+                c_val = Cell(
+                    text=pair_v.strip(),
+                    row_index=len(expanded_rows),
+                    col_index=1,
+                    is_header=False,
+                    bbox=row[1].bbox,
+                )
+                expanded_rows.append([c_key, c_val])
+
+        if not any_unpacked:
+            return None
+
+        # Re-indexar filas
+        for idx, r in enumerate(expanded_rows):
+            r[0].row_index = idx
+            if len(r) > 1:
+                r[1].row_index = idx
+
+        new_headers = [expanded_rows[0][0].text, expanded_rows[0][1].text] if expanded_rows else []
+        unpacked_table = Table(
+            table_id=table.table_id,
+            page_start=table.page_start,
+            page_end=table.page_end,
+            num_rows=len(expanded_rows),
+            num_cols=2,
+            headers=new_headers,
+            rows=expanded_rows,
+            bbox=table.bbox,
+            caption=table.caption,
+            is_multipage=table.is_multipage,
+        )
+        logger.info(
+            f"Tabla de formulario clave-valor '{table.table_id}' desempacada: "
+            f"{table.num_rows} filas -> {unpacked_table.num_rows} filas canónicas"
+        )
+        return unpacked_table
+

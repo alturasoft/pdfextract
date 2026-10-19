@@ -6,6 +6,7 @@ confidence_score (0.0 a 1.0) y un validation_status (HIGH, MEDIUM, LOW).
 
 from dataclasses import dataclass, field
 from enum import Enum
+import re
 from typing import Any, Dict, List, Optional
 
 from pdfextract.core.config import TableValidatorConfig
@@ -294,6 +295,37 @@ class TableValidator:
             )
             score -= penalty
 
+        # -------------------------------------------------------------
+        # 4. Validación Semántica / Clave-Valor (Celdas Multiclave)
+        # -------------------------------------------------------------
+        multikey_cells = 0
+        key_label_regex = re.compile(r"\b[A-Za-zÁ-ú]{2,}(?:\s+[A-Za-zÁ-ú]{2,}){0,4}:")
+        for r_idx, row in enumerate(table.rows):
+            for c_idx, cell in enumerate(row):
+                txt = cell.text.strip() if cell.text else ""
+                if not txt:
+                    continue
+                matches = key_label_regex.findall(txt)
+                # Si una sola celda contiene 2 o más etiquetas con dos puntos (ej. "Tipo de Póliza: Frecuencia de Pago:")
+                if len(matches) >= 2:
+                    multikey_cells += 1
+                # En tablas de 2 columnas (formulario Clave: Valor), la columna de valores (col_index 1)
+                # no debería contener etiquetas de clave embebidas seguidas de valor (ej: "Individual Póliza: 10229219")
+                elif c_idx == 1 and table.num_cols == 2 and len(matches) >= 1:
+                    multikey_cells += 1
+
+        if multikey_cells > 0:
+            penalty = min(0.35, 0.15 + 0.10 * multikey_cells)
+            issues.append(
+                ValidationIssue(
+                    category="structure",
+                    severity="warning" if multikey_cells == 1 else "critical",
+                    description=f"{multikey_cells} celdas presentan etiquetas múltiples colapsadas o desalineadas",
+                    penalty=penalty,
+                )
+            )
+            score -= penalty
+
         # Normalizar score a [0.0, 1.0]
         final_score = max(0.0, min(1.0, score))
 
@@ -322,6 +354,7 @@ class TableValidator:
                 "out_of_bounds": out_of_bounds,
                 "overlapping_pairs": overlapping_pairs,
                 "excessively_long_cells": excessively_long_cells,
+                "multikey_cells": multikey_cells,
             },
         )
 

@@ -201,12 +201,54 @@ class TablePostprocessor:
                     )
                     continue
 
-                # TABLA SOSPECHOSA / DISCREPANTE -> Ejecutar Table Transformer
+                # TABLA SOSPECHOSA / DISCREPANTE -> Evaluar corrección especializada
                 logger.info(
                     f"Tabla '{table_id}' en página {p_num} requiere corrección. "
                     f"Motivos: {', '.join(comp_res.discrepancy_reasons)}"
                 )
 
+                # 1. Intentar desempacado semántico aditivo de tablas clave-valor colapsadas
+                unpacked_table = None
+                if preferred_tbl and preferred_tbl.num_cols == 2:
+                    try:
+                        unpacked_candidate = self.reconstructor.unpack_collapsed_key_value_table(preferred_tbl)
+                        if unpacked_candidate is not None:
+                            val_rep = self.validator.validate(unpacked_candidate)
+                            if val_rep.confidence_score >= conf_before:
+                                unpacked_table = unpacked_candidate
+                                conf_after = val_rep.confidence_score
+                                logger.info(
+                                    f"Tabla '{table_id}' normalizada como formulario clave-valor "
+                                    f"(confianza: {conf_before:.3f} -> {conf_after:.3f})"
+                                )
+                    except Exception as e:
+                        logger.debug(f"Fallo en desempacado clave-valor para '{table_id}': {e}")
+
+                if unpacked_table is not None:
+                    page_final_tables.append(unpacked_table)
+                    tables_corrected += 1
+                    audit_records.append(
+                        TableAuditRecord(
+                            page=p_num,
+                            table_id=table_id,
+                            original_engine=comp_res.preferred_engine or "docling",
+                            original_structure=orig_struct,
+                            detected_problem="Celdas multiclave o formulario colapsado",
+                            confidence_before=conf_before,
+                            table_transformer_result=None,
+                            final_structure={
+                                "num_rows": unpacked_table.num_rows,
+                                "num_cols": unpacked_table.num_cols,
+                                "headers": unpacked_table.headers,
+                            },
+                            confidence_after=conf_after,
+                            correction_applied=True,
+                            details={"method": "unpack_collapsed_key_value_table", **comp_res.to_dict()},
+                        )
+                    )
+                    continue
+
+                # 2. Si no es tabla clave-valor colapsada, ejecutar Table Transformer
                 candidate_sources = [t for t in [d_tbl, p_tbl] if t is not None]
                 table_bbox = preferred_tbl.bbox if preferred_tbl else None
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Módulo de reglas de postprocesamiento de texto para motores de extracción.
 """
 
@@ -10,6 +10,7 @@ from pdfextract.postprocess.rules.docling_rules import (
     DoclingKeyValueJoinRule,
     DoclingMarkdownArtifactsRule,
 )
+from pdfextract.postprocess.rules.form_rules import ColumnarFormDisentangleRule
 from pdfextract.postprocess.rules.general_rules import (
     CleanWhitespaceRule,
     NormalizeTypographyRule,
@@ -35,6 +36,7 @@ def create_default_text_rules_pipeline(
     pipeline.register(HeaderFooterRemovalRule())
     pipeline.register(CleanWhitespaceRule())
     pipeline.register(NormalizeTypographyRule())
+    pipeline.register(ColumnarFormDisentangleRule())   # prioridad 22: desenredar bloques de formulario en columnas
 
     # 2. Reglas Docling
     pipeline.register(DoclingKeyValueJoinRule())      # prioridad 25: primero reconstruir pares clave-valor
@@ -55,6 +57,7 @@ __all__ = [
     "HeaderFooterRemovalRule",
     "CleanWhitespaceRule",
     "NormalizeTypographyRule",
+    "ColumnarFormDisentangleRule",
     "DoclingKeyValueJoinRule",
     "DoclingMarkdownArtifactsRule",
     "DoclingHeaderCleanRule",

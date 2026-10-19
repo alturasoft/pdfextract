@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pruebas unitarias para TableReconstructor.
 Verifica la alineación geométrica de fragmentos textuales con la estructura predicha.
 """
@@ -119,3 +119,42 @@ def test_reconstruct_table_geometry_matching():
     assert reconstructed.bbox is not None
     assert reconstructed.bbox.x0 == 50.0
     assert reconstructed.bbox.x1 == 200.0
+
+
+def test_unpack_collapsed_key_value_table():
+    reconstructor = TableReconstructor()
+
+    # Tabla 2x2 donde la fila 1 tiene múltiples claves colapsadas
+    rows = [
+        [
+            Cell(text="Producto:", row_index=0, col_index=0),
+            Cell(text="3604 AUT SUDAMERICANA BS.", row_index=0, col_index=1),
+        ],
+        [
+            Cell(text="Tipo de Póliza: Frecuencia de Pago:", row_index=1, col_index=0),
+            Cell(text="Individual Póliza: 10229219 Anual", row_index=1, col_index=1),
+        ],
+    ]
+    table = Table(
+        table_id="tbl_collapsed",
+        page_start=1,
+        page_end=1,
+        num_rows=2,
+        num_cols=2,
+        headers=["Producto:", "3604 AUT SUDAMERICANA BS."],
+        rows=rows,
+    )
+
+    unpacked = reconstructor.unpack_collapsed_key_value_table(table)
+    assert unpacked is not None
+    # Debe haberse expandido de 2 a 4 filas limpias
+    assert unpacked.num_rows == 4
+    assert unpacked.num_cols == 2
+
+    # Verificar cada fila desempaquetada
+    row_texts = [(r[0].text, r[1].text) for r in unpacked.rows]
+    assert ("Producto:", "3604 AUT SUDAMERICANA BS.") in row_texts
+    assert ("Tipo de Póliza:", "Individual") in row_texts
+    assert ("Póliza:", "10229219") in row_texts
+    assert ("Frecuencia de Pago:", "Anual") in row_texts
+

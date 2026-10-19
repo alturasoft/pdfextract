@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pruebas unitarias para el TableValidator.
 Verifica la detección de tablas válidas, anómalas, irregulares y degradadas.
 """
@@ -167,3 +167,17 @@ def test_compute_bbox_iou():
 
     # Different page
     assert compute_bbox_iou(b1, b_diff_page) == 0.0
+
+
+def test_multikey_cells_penalty():
+    validator = TableValidator()
+    table = _create_clean_table()
+
+    # Celda con múltiples claves colapsadas (ej: "Tipo de Póliza: Frecuencia de Pago:")
+    table.rows[1][0].text = "Tipo de Póliza: Frecuencia de Pago:"
+    report = validator.validate(table)
+
+    assert report.metrics.get("multikey_cells") == 1
+    assert any("etiquetas múltiples colapsadas" in i.description for i in report.issues)
+    assert report.confidence_score < 1.0
+

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pruebas unitarias para el sistema de reglas de postprocesamiento de texto.
 Verifica aislamiento por motor, reglas generales, reglas individuales y DocumentModel.
 """
@@ -310,3 +310,43 @@ def test_header_footer_multipage_cross_repetition():
         assert not any("Página" in t for t in elem_texts)
         # El cuerpo legítimo debe conservarse
         assert any("Artículo" in t for t in elem_texts)
+
+
+def test_columnar_form_disentangle_rule():
+    from pdfextract.postprocess.rules.form_rules import ColumnarFormDisentangleRule
+
+    rule = ColumnarFormDisentangleRule()
+    raw_input = (
+        "Producto:\n"
+        "Tipo de Póliza:\n"
+        "Frecuencia de Pago:\n"
+        "Contratante:\n"
+        "Dirección:\n"
+        "Vigencia:\n"
+        "Forma de Pago\n"
+        "Agente:\n"
+        "3604 AUT SUDAMERICANA BS.\n"
+        "Individual\n"
+        "Anual\n"
+        "MORALES NORO, DUNIA ESPERANZA - N0000000508320\n"
+        "B. FABRIL 26 DE SEPTIEMBRE CALLE 1RO DE MAYO.\n"
+        "Hasta el 10 de noviembre del 2026 12 M. Desde el 10 de noviembre del 2025 12 M.\n"
+        "Financiado.\n"
+        "J0000000000081\n"
+        "SUDAMERICANA S.R.L. CORREDORES Y ASESORES DE SEGUROS - 124\n"
+        "Póliza: 10229219\n"
+    )
+
+    result = rule.apply(raw_input)
+
+    # Cada clave debe estar emparejada con su valor correspondiente
+    assert "Producto: 3604 AUT SUDAMERICANA BS." in result
+    assert "Tipo de Póliza: Individual" in result
+    assert "Frecuencia de Pago: Anual" in result
+    assert "Contratante: MORALES NORO, DUNIA ESPERANZA - N0000000508320" in result
+    assert "Dirección: B. FABRIL 26 DE SEPTIEMBRE CALLE 1RO DE MAYO." in result
+    assert "Vigencia: Desde el 10 de noviembre del 2025 12 M. Hasta el 10 de noviembre del 2026 12 M." in result
+    assert "Forma de Pago: Financiado." in result
+    assert "Agente: J0000000000081 SUDAMERICANA S.R.L. CORREDORES Y ASESORES DE SEGUROS - 124" in result
+    assert "Póliza: 10229219" in result
+
