@@ -1,4 +1,4 @@
-﻿"""
+"""
 Punto de entrada principal (CLI) del Motor Comparativo de Extracción Documental.
 Permite procesar pólizas de seguros de forma individual o por lotes con Docling y PaddleOCR-VL 1.6.
 
@@ -120,9 +120,14 @@ def main() -> int:
 
     output_dir = Path(args.output) if args.output else Path(config.output.output_dir)
 
-    # Determinar motores habilitados
+    # Determinar motores habilitados respetando la configuración activa
     if args.engine == "all":
-        enabled_engines = ["docling", "paddleocr"]
+        enabled_engines = [
+            e for e in ["docling", "paddleocr"]
+            if getattr(getattr(config.engines, e, None), "enabled", True)
+        ]
+        if not enabled_engines:
+            enabled_engines = ["docling"]
     else:
         enabled_engines = [args.engine]
 

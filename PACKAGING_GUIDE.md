@@ -22,12 +22,12 @@ Si el repositorio está subido a GitHub, GitLab o Bitbucket (privado o público)
 pip install git+https://github.com/tu-usuario/pdfextract.git
 
 # O fijar una versión específica etiquetada
-pip install git+https://github.com/tu-usuario/pdfextract.git@v1.0.0
+pip install git+https://github.com/tu-usuario/pdfextract.git@v1.0.2
 ```
 
 En el archivo `requirements.txt` de tu otro proyecto, simplemente agregas:
 ```text
-git+https://github.com/tu-usuario/pdfextract.git@v1.0.0
+git+https://github.com/tu-usuario/pdfextract.git@v1.0.2
 ```
 
 ### Opción C: Generar un archivo Wheel binario (`.whl`)
@@ -37,9 +37,9 @@ cd D:/OGOS/DESARROLLOS/pdfextract
 py -3.14 -m pip install build
 py -3.14 -m build
 ```
-Esto creará una carpeta `dist/` con el archivo `pdfextract-1.0.0-py3-none-any.whl`. En el otro proyecto:
+Esto creará una carpeta `dist/` con el archivo `pdfextract-1.0.2-py3-none-any.whl`. En el otro proyecto:
 ```bash
-pip install dist/pdfextract-1.0.0-py3-none-any.whl
+pip install dist/pdfextract-1.0.2-py3-none-any.whl
 ```
 
 ---

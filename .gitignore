@@ -44,6 +44,12 @@ output/*
 input/*
 !input/.gitkeep
 
+# QA: corpus de pólizas (datos sensibles), corridas y secretos
+qa_corpus/
+qa_pages/
+qa_runs/
+.env
+
 # IDEs y SO
 .vscode/
 .idea/

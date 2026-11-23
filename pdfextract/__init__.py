@@ -20,7 +20,7 @@ from pdfextract.engines.base import BaseExtractionEngine, ExtractionResult
 from pdfextract.processors.document_processor import DocumentProcessor
 from pdfextract.processors.parallel_processor import BatchProcessor
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 
 def extract_pdf(

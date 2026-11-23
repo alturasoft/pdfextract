@@ -31,7 +31,7 @@ engines:
   # Motor 2: PaddleOCR-VL 1.6 (PaddleOCR / Vision-Language Model)
   # ----------------------------------------------------------------------------
   paddleocr:
-    enabled: true
+    enabled: false
     # Dispositivo de ejecución: 'auto', 'cpu', 'cuda'
     device: "auto"
     # Identificador o ruta del modelo PaddleOCR-VL

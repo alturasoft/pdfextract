@@ -21,7 +21,7 @@ from pdfextract import (
 
 def test_package_exports():
     """Verifica que los elementos clave estén exportados en la raíz del paquete."""
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.2"
     assert callable(extract_pdf)
     assert callable(extract_batch)
     assert callable(load_config)

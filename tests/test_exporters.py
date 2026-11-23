@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pruebas unitarias de los exportadores (TXT, Markdown y JSON).
 """
 
@@ -49,6 +49,67 @@ def test_markdown_exporter(sample_document_model: DocumentModel, tmp_path: Path)
     assert "| Cobertura | Suma Asegurada | Deducible |" in content
     assert "| --- | --- | --- |" in content
     assert "| Incendio y Rayo | USD 500.000 | 5% min USD 200 |" in content
+
+
+def test_markdown_exporter_table_title_promotion(tmp_path: Path):
+    from pdfextract.core.models import Cell, Table
+    table = Table(
+        table_id="tbl_title_test",
+        page_start=1,
+        page_end=1,
+        num_rows=3,
+        num_cols=3,
+        rows=[
+            [
+                Cell(text="CONDICION DE PAGO", row_index=0, col_index=0, col_span=3, is_header=True),
+                Cell(text="CONDICION DE PAGO", row_index=0, col_index=1, col_span=3, is_header=True),
+                Cell(text="CONDICION DE PAGO", row_index=0, col_index=2, col_span=3, is_header=True),
+            ],
+            [
+                Cell(text="Forma Pago", row_index=1, col_index=0, is_header=True),
+                Cell(text="Prima Anual", row_index=1, col_index=1, is_header=True),
+                Cell(text="Prima Total", row_index=1, col_index=2, is_header=True),
+            ],
+            [
+                Cell(text="CONTADO", row_index=2, col_index=0),
+                Cell(text="424,00", row_index=2, col_index=1),
+                Cell(text="424,00", row_index=2, col_index=2),
+            ],
+        ],
+    )
+    exporter = MarkdownExporter()
+    md = exporter._format_table_as_markdown(table)
+    assert "**Tabla: CONDICION DE PAGO**" in md
+    assert "| Forma Pago | Prima Anual | Prima Total |" in md
+    assert "| CONTADO | 424,00 | 424,00 |" in md
+
+
+def test_markdown_exporter_span_expansion(tmp_path: Path):
+    from pdfextract.core.models import Cell, Table
+    # Celda combinada con row_span=2 y col_span=2
+    table = Table(
+        table_id="tbl_span_test",
+        page_start=1,
+        page_end=1,
+        num_rows=3,
+        num_cols=3,
+        headers=["Cat", "SubCat", "Valor"],
+        rows=[
+            [
+                Cell(text="SECCIÓN A", row_index=0, col_index=0, row_span=2, col_span=2),
+                Cell(text="100", row_index=0, col_index=2),
+            ],
+            [
+                Cell(text="200", row_index=1, col_index=2),
+            ],
+        ],
+    )
+    exporter = MarkdownExporter()
+    md = exporter._format_table_as_markdown(table)
+    # En GFM, SECCIÓN A se replica verticalmente para autocontención de chunks RAG,
+    # mientras que las columnas cubiertas por colspan quedan limpias (sin duplicación horizontal redundante).
+    assert "| SECCIÓN A |  | 100 |" in md
+    assert "| SECCIÓN A |  | 200 |" in md
 
 
 def test_json_exporter(sample_document_model: DocumentModel, tmp_path: Path):
